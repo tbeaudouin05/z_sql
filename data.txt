@@ -1,0 +1,91 @@
+select 
+*,
+venture_code +'-'+ buying_planning_cat_type +'-'+ buying_department as ctry_cat_dep,
+venture_code +'-'+ buying_planning_cat_type +'-'+ buying_department +'-'+ brand_name as ctry_cat_dep_brand,
+venture_code +'-'+ buying_planning_cat_type +'-'+ buying_department +'-'+ brand_name +'-'+ sub_category_type as ctry_cat_dep_brand_subcat
+
+from
+
+(select
+start_date,
+w.venture_code,
+buying_planning_cat_type,
+(case when buying_department = '01)Regional PL' then 'RPL'    
+when buying_department = '02)Regional Brand Outright' then 'RBO'
+when buying_department = '03)Regional Brand Consignment' then 'RBC'
+when buying_department = '04)Local PL' then 'LBO'
+when buying_department = '05)Local Brand Outright' then 'LBO'
+when buying_department = '06)Local Brand Consignment' then 'LBC'
+when buying_department = '07)Regional Brand Crosslisting' then 'RBO'
+when buying_department = '08)Local Brand Crosslisting' then 'LBO'
+when buying_department = '09)Others' then 'MP'
+when buying_department ='10)MP' then 'MP'
+when buying_department ='11)X-Dock or Dropshipping' then 'MP'
+else 'MP'
+end) as "buying_department",
+(case when brand_name = 'Easy Soft By World Balance' then 'Easy Soft By WB'   
+when brand_name ='Love Curves Clothing By Jgo' then 'Love Curves Clothing'
+when brand_name ='Marc & Stuart Shoes' then 'Marc & Stuart S'
+when brand_name ='Santa Barbara Polo & Racquet Club' then 'Santa Barbara Polo & RC'
+when brand_name ='Something Borrowed' then 'SB'
+else brand_name
+end) as "brand_name",
+sub_category_type,
+sum(items_sold) as "items_sold",
+sum(items_sold-cxl_items_sold-rtn_items_sold) as "net_items_sold",
+sum(gmv_lcy) as "gmv_lcy",
+sum((gmv_lcy)-(cxl_gmv_lcy)-(rtn_gmv_lcy)) as "net_gmv_lcy",
+sum(gmv_amd_lcy) as "gmv_amd_lcy",
+sum((gmv_amd_lcy)-(cxl_gmv_amd_lcy)-(rtn_gmv_amd_lcy)) as "net_gmv_amd_lcy",
+sum((voucher_amount_lcy)+(cart_rule_discount_lcy)) as "promotion_lcy",
+sum(((voucher_amount_lcy)+(cart_rule_discount_lcy))-((cxl_voucher_amount_lcy)+(cxl_cart_rule_discount_lcy))-((rtn_voucher_amount_lcy)+(rtn_cart_rule_discount_lcy))) as "net_promotion_lcy",
+sum(nmv_lcy) as "nmv_lcy",
+sum((nmv_lcy)-(cxl_nmv_lcy)-(rtn_nmv_lcy)) as "net_nmv_lcy",
+sum(cost_of_sales_lcy) as "cost_of_sales_lcy",
+sum((cost_of_sales_lcy)-(cxl_cost_of_sales_lcy)-(rtn_cost_of_sales_lcy)) as "net_cost_of_sales_lcy",
+sum(case
+when is_marketplace_static =1 then mp_commission_fee_lcy-cxl_mp_commission_fee_lcy-rtn_mp_commission_fee_lcy
+when shipment_type = 'Consignment Stock' then (gmv_amd_lcy-cxl_gmv_amd_lcy-rtn_gmv_amd_lcy)-(cost_of_sales_lcy-cxl_cost_of_sales_lcy-rtn_cost_of_sales_lcy)
+else (gmv_lcy-cxl_gmv_lcy-rtn_gmv_lcy)-(cost_of_sales_lcy-cxl_cost_of_sales_lcy-rtn_cost_of_sales_lcy)
+end) as "intake_margin_lcy",
+sum(mp_commission_fee_lcy) as "mp_commission_fee_lcy",
+sum(mp_commission_fee_lcy-cxl_mp_commission_fee_lcy-rtn_mp_commission_fee_lcy) as "net_mp_commission_fee_lcy",
+sum(case when lower(shipment_type) like 'cross%' then (gmv_lcy) else 0 end) as "crosslisted_gmv_lcy",
+sum(case when lower(shipment_type) like 'cross%' then (gmv_lcy)-(cxl_gmv_lcy)-(rtn_gmv_lcy) else 0 end) as "net_crosslisted_gmv_lcy",
+sum(case when lower(shipment_type) like 'cross%' then (gmv_amd_lcy) else 0 end) as "crosslisted_gmv_amd_lcy",
+sum(case when lower(shipment_type) like 'cross%' then (gmv_amd_lcy)-(cxl_gmv_amd_lcy)-(rtn_gmv_amd_lcy) else 0 end) as "net_crosslisted_gmv_amd_lcy",
+sum(case when lower(shipment_type) like 'cross%' then (nmv_lcy) else 0 end) as "crosslisted_nmv_lcy",
+sum(case when lower(shipment_type) like 'cross%' then (nmv_lcy)-(cxl_nmv_lcy)-(rtn_nmv_lcy) else 0 end) as "net_crosslisted_nmv_lcy",
+sum(current_stock_rrp_lcy) as "current_stock_rrp_lcy",
+sum(current_stock_pmp_lcy) as "current_stock_pmp_lcy",
+sum(current_stock_crp_lcy) as "current_stock_crp_lcy",
+sum(inbounded_stock) as "inbounded_stock",
+sum(case when inbounded_stock>0 then 1 else 0 end) as "inbounded_sku",
+sum(inbounded_rrp_lcy) as "inbounded_rrp_lcy",
+sum(inbounded_pmp_lcy) as "inbounded_pmp_lcy",
+sum(inbounded_crp_lcy) as "inbounded_crp_lcy",
+sum(inbounded_cost_lcy) as "inbounded_cost_lcy",
+sum(impressions) as "impressions",
+sum(views) as "views",
+sum(case when lower(shipment_type)<>'consignment' then zops_outstanding_rrp_lcy else 0 end) as "zops_outstanding_rrp_lcy_excl_consignment",
+sum(case when lower(shipment_type)<>'consignment' then zops_outstanding_pmp_lcy else 0 end) as "zops_outstanding_pmp_lcy_excl_consignment",
+sum(case when lower(shipment_type)<>'consignment' then zops_outstanding_crp_lcy else 0 end) as "zops_outstanding_crp_lcy_excl_consignment",
+sum(zops_outstanding_rrp_lcy) as "zops_outstanding_rrp_lcy",
+sum(zops_outstanding_pmp_lcy) as "zops_outstanding_pmp_lcy",
+sum(zops_outstanding_crp_lcy) as "zops_outstanding_crp_lcy",
+sum(zops_outstanding_cost_lcy) as "zops_outstanding_cost_lcy",
+sum(zops_outstanding_units) as "zops_outstanding_units" ,
+count(case when zops_outstanding_units > 0 then id_catalog_config end) as "zops_outstanding_config",
+sum(case when lower(shipment_type)<>'consignment' then zops_on_order_rrp_lcy else 0 end) as "zops_on_order_rrp_lcy_excl_consignment",
+sum(case when lower(shipment_type)<>'consignment' then zops_on_order_pmp_lcy else 0 end) as "zops_on_order_pmp_lcy_excl_consignment",
+sum(case when lower(shipment_type)<>'consignment' then zops_on_order_crp_lcy else 0 end) as "zops_on_order_crp_lcy_excl_consignment",
+sum(zops_on_order_rrp_lcy) as "zops_on_order_rrp_lcy",
+sum(zops_on_order_pmp_lcy) as "zops_on_order_pmp_lcy",
+sum(zops_on_order_crp_lcy) as "zops_on_order_crp_lcy",
+sum(zops_on_order_cost_lcy) as "zops_on_order_cost_lcy",
+sum(zops_on_order_units) as "zops_on_order_units",
+count(case when zops_on_order_units > 0 then id_catalog_config end) as "zops_on_order_config"
+from buying.weekly_agg w
+where start_date='2017-04-03'
+and w.venture_code not in ('vn','th')
+group by 1,2,3,4,5,6)  x

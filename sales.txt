@@ -1,0 +1,84 @@
+SELECT
+country || '-' || category as "Ctry_Cat",
+country || '-' || category || '-' || department as "Ctry_Cat_Dep",
+country || '-' || category || '-' || department || '-' || brand as "Ctry_Cat_Dep_Brand",
+country || '-' || category || '-' || department || '-' || brand || '-' || subcategory as "Ctry_Cat_Dep_Brand_subcat",
+*
+
+FROM
+
+(SELECT
+         case when lower(hlt_oi.country)='sg' or lower(hlt_oi.country)='my' or lower(hlt_oi.country)='hk' or lower(hlt_oi.country)='tw'
+              then 'Cluster'
+              else lower(hlt_oi.country) end 
+              
+         as types_of_grouping,
+         
+         lower(hlt_oi.country)
+         
+         as country,
+         
+         case    when category ='Rest1' then 'Wacc'
+                 when category ='Rest2' then 'Macc'
+                 when category ='Rest3' then 'Msho'  
+                 else category  end
+                 
+         as category,
+                  
+         case    when (department = 'regional_branded_xlist')    then 'RBO'
+                 when (department in ('local_private_label', 'local_branded_xlist'))  then 'LBO'
+                               else
+                      (case    when department = 'regional_private_label'       then 'RPL'
+                               when department = 'regional_branded_outright'    then 'RBO'
+                               when department = 'regional_branded_consignment' then 'RBC'
+                               when department = 'local_branded_outright'       then 'LBO'
+                               when department = 'local_branded_consignment'    then 'LBC'
+                               when department = 'marketplace'                  then 'MP'
+                               when department = 'non-core_non-fashion'         then 'NCNF' end)end
+                               
+         as department,
+         
+        case    when brand='Easy Soft By World Balance'           then 'Easy Soft By WB'
+                 when brand='Love Curves Clothing By Jgo'         then 'Love Curves Clothing'
+                 when brand='Marc & Stuart Shoes'                 then 'Marc & Stuart S'
+                 when brand='Santa Barbara Polo & Racquet Club'   then 'Santa Barbara Polo & RC'
+                 when brand='Something Borrowed'                  then 'SB' 
+                 else brand end
+                 
+        as brand,
+        
+        sub_cat_type_w_blanks
+        
+        as subcategory,
+        
+        case when (week + 5) >= 10 then year || '-' || (week + 5) else year || '-' || '0' || (week + 5) end as "year_week",
+
+               sum(unit_price_of_rrc_rd) as unit_price_of_rrc_rd,
+               sum(coupon_value_of_rrc_rd) as coupon_value_of_rrc_rd,
+               sum(cart_rules_of_rrc_rd) as cart_rules_of_rrc_rd,
+               sum(unit_price_of_net_sales_rd) as unit_price_of_net_sales_rd,
+               sum(original_price_of_net_sales_rd) as original_price_of_net_sales_rd,
+               sum(cost_of_net_sales_rd) as cost_of_net_sales_rd,
+               sum(coupon_value_of_net_sales_rd) as coupon_value_of_net_sales_rd,
+               sum(cart_rules_of_net_sales_rd) as cart_rules_of_net_sales_rd,
+               sum(tax_amount_of_net_sales_rd) as tax_amount_of_net_sales_rd,
+               sum(items_of_net_sales_rd) as items_of_net_sales_rd,
+
+               case when (department = 'regional_branded_xlist' or department='local_branded_xlist') and hlt_oi.country in ('ph')
+               then original_price_of_net_sales_od
+               else 0 END as "ph_XL_Sales_from_cluster",
+
+               case when (department = 'regional_branded_xlist' or department='local_branded_xlist') and hlt_oi.country in ('id')
+               then original_price_of_net_sales_od
+               else 0 END as "id_XL_Sales_from_cluster"
+
+
+FROM ds_aggregated.hlt_oi
+
+WHERE year >= 2017 AND week >= 0
+AND   country IN ('sg','hk','tw','my','id','ph')
+
+
+group by country, category, department, sub_cat_type_w_blanks,hlt_oi.month_name,week,year,brand, unit_price_of_valid_sales,original_price_of_valid_sales,cost_of_valid_sales,coupon_value_of_valid_sales,cart_rules_of_valid_sales,tax_amount_of_valid_sales,unit_price_of_rrc_od,original_price_of_rrc_od,cost_of_rrc_od,coupon_value_of_rrc_od,cart_rules_of_rrc_od,tax_amount_of_rrc_od,unit_price_of_net_sales_od,original_price_of_net_sales_od,cost_of_net_sales_od,coupon_value_of_net_sales_od,cart_rules_of_net_sales_od,tax_amount_of_net_sales_od,unit_price_of_rrc_rd,original_price_of_rrc_rd,cost_of_rrc_rd,coupon_value_of_rrc_rd,cart_rules_of_rrc_rd,tax_amount_of_rrc_rd,unit_price_of_net_sales_rd,original_price_of_net_sales_rd,cost_of_net_sales_rd,coupon_value_of_net_sales_rd,cart_rules_of_net_sales_rd,tax_amount_of_net_sales_rd,items_of_valid_sales,items_of_rrc_od,items_of_net_sales_od,items_of_rrc_rd,items_of_net_sales_rd
+)
+as sales_table

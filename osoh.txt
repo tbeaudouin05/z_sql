@@ -1,0 +1,59 @@
+SELECT
+
+country ||'-'|| category as ctry_cat,
+country ||'-'|| category ||'-'|| department as ctry_cat_dep,
+country ||'-'|| category ||'-'|| department ||'-'|| brand as ctry_cat_dep_brand,
+*
+
+FROM(
+SELECT
+
+case      when lower(country)='sg' or lower(country)='my' or lower(country)='hk' or lower(country)='tw' then 'my' 
+          else lower(country) 
+end 
+
+as country,
+
+case      when category ='Rest1' then 'Wacc'
+          when category ='Rest2' then 'Macc'
+          when category ='Rest3' then 'Msho'  else category
+end
+              
+as category,
+
+case      when (department = 'regional_branded_xlist')                          then 'RBO'
+          when (department in ('local_private_label', 'local_branded_xlist'))   then 'LBO'
+          else
+          case when department = 'regional_private_label'                       then 'RPL'
+               when department = 'regional_branded_outright'                    then 'RBO'
+               when department = 'regional_branded_consignment'                 then 'RBC'
+               when department = 'regional_branded_xlist'                       then 'RBX'
+               when department = 'local_private_label'                          then 'LPL'
+               when department = 'local_branded_outright'                       then 'LBO'
+               when department = 'local_branded_consignment'                    then 'LBC'
+               when department = 'local_branded_xlist'                          then 'LBX'
+               when department = 'marketplace'                                  then 'MP'
+               when department = 'non-core_non-fashion'                         then 'NCNF' 
+               end
+          end
+               
+as department,
+
+case      when brand='Easy Soft By World Balance'                               then 'Easy Soft By WB'
+          when brand='Love Curves Clothing By Jgo'                              then 'Love Curves Clothing'
+          when brand='Marc & Stuart Shoes'                                      then 'Marc & Stuart S'
+          when brand='Santa Barbara Polo & Racquet Club'                        then 'Santa Barbara Polo & RC'
+          when brand='Something Borrowed'                                       then 'SB' 
+          else brand 
+          end
+          
+as brand,
+
+
+       start_date,
+       year,
+       original_price_of_open_stock_eur
+       
+FROM ds_aggregated.wssi_ty_stock
+
+where country in ('sg','tw','hk','my','id','ph') and  year >= date_part('year', CURRENT_DATE)) as osoh_table

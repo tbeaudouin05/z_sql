@@ -1,0 +1,126 @@
+WITH  tmp_stock_receipts_master AS (
+
+SELECT
+    lower(oms_item.country) AS "country",
+    catalog_config.sub_cat_type AS "subcat",
+    oms_item.uid,
+    oms_item.outbound_crosslisted,
+    catalog_config.supplier_name,
+    catalog_config.gender,
+    catalog_config.sku AS sku_config,
+
+    MAX(catalog_simple.price) AS "price",
+    MAX(catalog_simple.cost) AS "cost",
+    (DATE_TRUNC('month', oms_item.inbound_date))::date AS "inbound_month",
+    
+    CASE WHEN catalog_config.buying_planning_cat_type ='Rest1' THEN 'Wacc'
+         WHEN catalog_config.buying_planning_cat_type ='Rest2' THEN 'Macc'
+         WHEN catalog_config.buying_planning_cat_type ='Rest3' THEN 'Msho'  
+         ELSE catalog_config.buying_planning_cat_type  END
+    AS "category",
+
+    CASE WHEN catalog_config.department = 'regional_private_label'       THEN 'RPL'
+         WHEN catalog_config.department IN ('regional_branded_outright', 'regional_branded_xlist')    THEN 'RBO'
+         WHEN catalog_config.department = 'regional_branded_consignment' THEN 'RBC'
+         WHEN catalog_config.department IN ('local_branded_outright', 'local_private_label', 'local_branded_xlist') THEN 'LBO'
+         WHEN catalog_config.department = 'local_branded_consignment'    THEN 'LBC'
+         WHEN catalog_config.department = 'marketplace'                  THEN 'MP'
+         WHEN catalog_config.department = 'non-core_non-fashion'         THEN 'NCNF' END 
+    AS "department",
+    
+    CASE WHEN catalog_config.brand='Easy Soft By World Balance' then 'Easy Soft By WB'
+         WHEN catalog_config.brand='Love Curves Clothing By Jgo' then 'Love Curves Clothing'
+         WHEN catalog_config.brand='Marc & Stuart Shoes' then 'Marc & Stuart S'
+         WHEN catalog_config.brand='Santa Barbara Polo & Racquet Club' then 'Santa Barbara Polo & RC'
+         WHEN catalog_config.brand='Something Borrowed' then 'SB' 
+         ELSE catalog_config.brand END
+    AS "brand",
+
+
+
+    CASE WHEN catalog_config.product_season IN ('Spring-Summer 2013', 'Autumn-Winter 2013', 'Spring-Summer 2014', 'Autumn-Winter 2014', 'Spring-Summer 2015','Autumn-Winter 2015', 'Spring-Summer 2016', 'Autumn-Winter 2016', 'Spring-Summer 2017', 'Autumn-Winter 2017', 'Spring-Summer 2018', 'Autumn-Winter 2018')
+         THEN catalog_config.product_season
+         ELSE 'unknown' END 
+    AS "product_season",
+
+    (CASE WHEN left(product_season, 13) IN ('Spring-Summer') THEN right(product_season, 4) ||'-07-31'
+          WHEN left(product_season, 13) IN ('Autumn-Winter') THEN (right(product_season, 4)::int + 1) ||'-01-31' END)::date
+    AS "cut_off_date"
+
+FROM ds_aggregated.oms_item
+
+LEFT JOIN ds_aggregated.catalog_simple
+    ON  oms_item.fk_catalog_simple = catalog_simple.fk_catalog_simple
+    AND oms_item.country = catalog_simple.country
+
+LEFT JOIN ds_aggregated.catalog_config
+    ON  catalog_config.fk_catalog_config = catalog_simple.fk_catalog_config
+    AND catalog_config.country = catalog_simple.country
+
+WHERE oms_item.country IN ('sg', 'my', 'hk', 'tw', 'ph', 'id')
+
+GROUP BY
+    cut_off_date,
+    department,
+    product_season,
+    inbound_month,
+    oms_item.country,
+    oms_item.uid,
+    oms_item.outbound_crosslisted,
+    catalog_config.brand,
+    catalog_config.supplier_name,
+    catalog_config.buying_planning_cat_type,
+    catalog_config.sub_cat_type,
+    catalog_config.gender,
+    catalog_config.sku
+)
+
+
+
+
+SELECT
+
+    tmp_stock_receipts_master.country || '-' || category AS WH_Cat,
+
+    tmp_stock_receipts_master.country || '-' || category || '-' || department AS WH_Cat_Dep,
+
+    tmp_stock_receipts_master.country || '-' || category || '-' || department || '-' || brand AS WH_Cat_Dep_Brand,
+
+    tmp_stock_receipts_master.country || '-' || category || '-' || department || '-' || brand || '-' || subcat  AS WH_Cat_Dep_Brand_Subcat,
+
+    tmp_stock_receipts_master.country,
+
+    category,
+
+    department,
+
+    brand,
+
+    subcat,
+
+    gender,
+
+    inbound_month,
+
+    COUNT(distinct sku_config)                                                                                      AS "no_of_sku_stock_receipts",
+    ROUND(SUM(CASE WHEN outbound_crosslisted = 0 THEN price ELSE 0 END), 2)                                         AS "rrp_of_net_stock_receipts",
+    ROUND(SUM(CASE WHEN outbound_crosslisted = 0 THEN cost ELSE 0 END), 2)                                          AS "cost_of_net_stock_receipts",
+    COUNT(CASE WHEN outbound_crosslisted = 0 THEN uid END)                                                          AS "items_of_net_stock_receipts",
+    ROUND(SUM((CASE WHEN outbound_crosslisted = 0 THEN price ELSE 0 END)) * max(static_latest_fx_rate.fx_rate), 2)  AS "rrp_of_net_stock_receipts_eur",
+    ROUND(SUM((CASE WHEN outbound_crosslisted = 0 THEN cost ELSE 0 END))  * max(static_latest_fx_rate.fx_rate), 2)  AS "cost_of_net_stock_receipts_eur"
+
+FROM tmp_stock_receipts_master
+
+LEFT JOIN ds_aggregated.static_latest_fx_rate
+ON  static_latest_fx_rate.country = tmp_stock_receipts_master.country
+
+WHERE inbound_month >= (CURRENT_DATE - interval '100 day')
+
+GROUP BY
+    tmp_stock_receipts_master.country,
+    department,
+    brand,
+    category,
+    subcat,
+    gender,
+    inbound_month

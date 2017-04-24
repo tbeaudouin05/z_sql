@@ -1,0 +1,83 @@
+SELECT
+
+country || '-' || category as "Ctry_Cat",
+country || '-' || category || '-' || department as "Ctry_Cat_Dep",
+country || '-' || category || '-' || department || '-' || brand as "Ctry_Cat_Dep_Brand",
+country || '-' || category || '-' || department || '-' || brand || '-' || sub_cat_type as "Ctry_Cat_Dep_Brand_Subcat",
+*
+
+FROM 
+
+(SELECT
+
+     case   when lower(country)='sg' or lower(country)='my' or lower(country)='hk' or lower(country)='tw' then 'Cluster'
+     else   lower(country) 
+     end 
+     as "types_of_grouping",
+
+     lower(country) as "country",
+
+     case   when category ='Rest1' then 'Wacc'
+            when category ='Rest2' then 'Macc'
+            when category ='Rest3' then 'Msho'  
+   	    else category  
+     end
+     as "category",
+
+     case   when department = 'regional_branded_xlist'                               then 'RBO'
+            when department in ('local_private_label', 'local_branded_xlist')        then 'LBO'
+            else
+            case  when department = 'regional_private_label'             then 'RPL'
+                  when department = 'regional_branded_outright'    	then 'RBO'
+                  when department = 'regional_branded_consignment' 	then 'RBC'
+                  when department = 'regional_branded_xlist'       	then 'RBX'
+                  when department = 'local_private_label'          	then 'LPL'
+                  when department = 'local_branded_outright'       	then 'LBO'
+                  when department = 'local_branded_consignment'    	then 'LBC'
+                  when department = 'local_branded_xlist'          	then 'LBX'
+                  when department = 'marketplace'                  	then 'MP'
+                  when department = 'non-core_non-fashion'         	then 'NCNF' 
+                  end 
+           end
+     as "department",
+
+     case  when brand='Easy Soft By World Balance' then 'Easy Soft By WB'
+           when brand='Love Curves Clothing By Jgo' then 'Love Curves Clothing'
+           when brand='Marc & Stuart Shoes' then 'Marc & Stuart S'
+           when brand='Santa Barbara Polo & Racquet Club' then 'Santa Barbara Polo & RC'
+           when brand='Something Borrowed' then 'SB' 
+	   else  brand 
+	   end
+     as "brand",
+
+       sub_cat_type,
+       estimated_arrival_date::date,
+       estimated_arrival_date as delivery_date,
+       count(DISTINCT(case when items_to_be_inbound >0 then fk_sku_config end)) as no_of_configs_to_be_in,
+       items_to_be_inbound,
+       (items_to_be_inbound*retail_unit_price) as RRP_to_be_inbound,
+       sum((case when items_to_be_inbound >0 then cost_value_lc end)) as "cost",
+
+       CASE WHEN COALESCE(po_status,'') NOT IN  ('Cancelled')
+                     
+                    then (COALESCE(retail_value,retail_value))  end as Zops_ec_RRP
+
+
+from ds_aggregated.zops_on_order
+
+WHERE lower (department) NOT IN ('marketplace','non-core_non-fashion') and
+
+      estimated_arrival_date >= '01-09-2016'
+
+group by country,
+zops_on_order.category,
+zops_on_order.department,
+brand,
+zops_on_order.sub_cat_type,
+zops_on_order.estimated_arrival_date,
+zops_on_order.po_status,
+zops_on_order.retail_unit_price,
+zops_on_order.retail_value,
+zops_on_order.po_quantity,
+inbounded_quantity,
+items_to_be_inbound) as zops_table
